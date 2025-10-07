@@ -2,10 +2,11 @@ import { Elysia, t } from 'elysia'
 import { node } from '@elysiajs/node'
 import { PORT } from '../config.js';
 import type { server } from './types/index.js';
-import { test } from './mock/index.js';
+import { data } from './mock/index.js';
+
 const app = new Elysia({ adapter: node() });
 
-app.get('/', () => test)
+app.get('/', () => data.test)
 
 app.get('/test', () => {
     return new Response('<h1>Test route</h1>', {
@@ -16,7 +17,7 @@ app.get('/test', () => {
 })
 
 app.get('/api/test/:id', ({ params, set }) => {
-    const foundItem = test.find(item => item.id === params.id);
+    const foundItem = data.test.find(item => item.id === params.id);
     if (!foundItem) {
         set.status = 404;
         return { error: 'Not found' };
@@ -28,13 +29,16 @@ app.get('/api/test/:id', ({ params, set }) => {
     })
 })
 
-
 app.delete('/api/test/:id', ({ params, set }) => {
-    const data = test.filter(item => item.id !== params.id);
-    set.status = 204;
-    console.log({ message: 'Item deleted successfully' });
-    console.log(data);
+    const itemIndex = data.test.findIndex(item => item.id === params.id);
 
+    if (itemIndex === -1) {
+        set.status = 404;
+        return { error: 'Item not found' };
+    }
+
+    data.test = data.test.filter(item => item.id !== params.id);
+    set.status = 204;
 }, {
     params: t.Object({
         id: t.Number()
@@ -44,11 +48,13 @@ app.delete('/api/test/:id', ({ params, set }) => {
 app.post('/api/test', ({ body, set }) => {
     const newItem = {
         id: body.id,
-        content: body.content ?? new Date().toISOString(),
-        date: body.date,
+        content: body.content,
+        date: body.date ?? new Date().toISOString(),
         important: body.important ?? false
     };
-    test.push(newItem);
+
+
+    data.test = [...data.test, newItem];
     set.status = 201;
     return newItem;
 }, {
@@ -61,7 +67,3 @@ app.post('/api/test', ({ body, set }) => {
 })
 
 app.listen(PORT, ({ hostname, port }: server) => console.log(`Server running at http://${hostname}:${port}`))
-
-
-
-
