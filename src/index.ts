@@ -41,6 +41,25 @@ app.delete('/api/test/:id', ({ params, set }) => {
     })
 })
 
+app.post('/api/test', ({ body, set }) => {
+    const newItem = {
+        id: body.id,
+        content: body.content ?? new Date().toISOString(),
+        date: body.date,
+        important: body.important ?? false
+    };
+    test.push(newItem);
+    set.status = 201;
+    return newItem;
+}, {
+    body: t.Object({
+        id: t.Number(),
+        content: t.String(),
+        date: t.String(),
+        important: t.Boolean()
+    })
+})
+
 app.listen(PORT, ({ hostname, port }: server) => console.log(`Server running at http://${hostname}:${port}`))
 
 
