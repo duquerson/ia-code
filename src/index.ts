@@ -16,7 +16,7 @@ import { node } from '@elysiajs/node'
 import { PORT } from '../config.js';
 import type { server } from './types/index.js';
 import { data } from './mock/index.js';
-
+import { cors } from '@elysiajs/cors';
 /**
  * Configuración de la aplicación Elysia con adaptador Node.js
  * Permite ejecutar la aplicación en un servidor HTTP estándar
@@ -184,4 +184,4 @@ app.post('/api/test', ({ body, set }) => {
  * @param {string} callback.hostname - Nombre del host donde se ejecuta el servidor
  * @param {number} callback.port - Puerto donde se ejecuta el servidor
  */
-app.listen(PORT, ({ hostname, port }: server) => console.log(`Server running at http://${hostname}:${port}`))
+app.use(cors()).listen(PORT, ({ hostname, port }: server) => console.log(`Server running at http://${hostname}:${port}`))
