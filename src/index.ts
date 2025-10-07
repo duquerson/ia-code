@@ -46,6 +46,14 @@ app.delete('/api/test/:id', ({ params, set }) => {
 })
 
 app.post('/api/test', ({ body, set }) => {
+
+    if (!body.id || !body.content) {
+        set.status = 400;
+        return { error: 'Missing id or content' };
+    }
+
+
+
     const newItem = {
         id: body.id,
         content: body.content,
