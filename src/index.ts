@@ -15,9 +15,13 @@ app.get('/test', () => {
     })
 })
 
-app.get('/api/test/:id', ({ params }) => {
+app.get('/api/test/:id', ({ params, set }) => {
     const foundItem = test.find(item => item.id === params.id);
-    return foundItem ?? { error: 'Not found' };
+    if (!foundItem) {
+        set.status = 404;
+        return { error: 'Not found' };
+    }
+    return foundItem;
 }, {
     params: t.Object({
         id: t.Number()
@@ -25,7 +29,17 @@ app.get('/api/test/:id', ({ params }) => {
 })
 
 
+app.delete('/api/test/:id', ({ params, set }) => {
+    const data = test.filter(item => item.id !== params.id);
+    set.status = 204;
+    console.log({ message: 'Item deleted successfully' });
+    console.log(data);
 
+}, {
+    params: t.Object({
+        id: t.Number()
+    })
+})
 
 app.listen(PORT, ({ hostname, port }: server) => console.log(`Server running at http://${hostname}:${port}`))
 
