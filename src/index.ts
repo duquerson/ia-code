@@ -1,22 +1,23 @@
 /**
- * API REST para gestión de notas de prueba
+ * API REST para gestión de notas
  * 
- * Esta aplicación proporciona endpoints CRUD básicos para manejar notas de prueba
- * utilizando el framework Elysia.js con TypeScript.
+ * Esta aplicación proporciona endpoints CRUD básicos para manejar notas
+ * utilizando el framework Elysia.js con TypeScript y MongoDB.
  * 
  * Características principales:
  * - Operaciones CRUD completas (Crear, Leer, Actualizar, Eliminar)
  * - Validación de tipos con Elysia
  * - Manejo de errores HTTP estándar
- * - Datos mock para desarrollo y testing
+ * - Persistencia de datos con MongoDB Atlas
  */
 
 import { Elysia } from 'elysia'
 import { node } from '@elysiajs/node'
 import { cors } from '@elysiajs/cors'
-import { PORT } from '../config.js'
-import type { server } from './types/index.js'
-import { testRoutes } from './routes/test.routes.js'
+import { PORT } from './config.ts'
+import type { server } from './types/index.ts'
+import { testRoutes } from './routes/test.routes.ts'
+import { connectDB } from './config/db.ts'
 
 /**
  * Configuración de la aplicación Elysia con adaptador Node.js
@@ -28,7 +29,9 @@ const app = new Elysia({ adapter: node() })
 app.use(cors())
 
 // Manejo global de errores
-app.onError(({ code, set }) => {
+app.onError(({ code, error, set }) => {
+    console.error('Error capturado:', { code, error });
+    
     if (code === 'VALIDATION' || code === 'NOT_FOUND') {
         set.status = 404
         return {
@@ -40,7 +43,8 @@ app.onError(({ code, set }) => {
     set.status = 500
     return {
         error: 'Internal Server Error',
-        message: 'An unexpected error occurred'
+        message: 'An unexpected error occurred',
+        details: error instanceof Error ? error.message : 'Unknown error'
     }
 })
 
@@ -55,8 +59,17 @@ app.all('*', ({ set }) => {
         message: 'The requested route does not exist'
     }
 })
-// Inicio del servidor
-// app.use(cors()).listen(PORT, ({ hostname, port }: server) => console.log(`Server running at http://${hostname}:${port}`))
-app.listen(PORT, ({ hostname, port }: server) =>
-    console.log(`Server running at http://${hostname}:${port}`)
-)
+// Inicializar conexión a base de datos e iniciar servidor
+const startServer = async () => {
+    try {
+        await connectDB();
+        app.listen(PORT, ({ hostname, port }: server) =>
+            console.log(`Server running at http://${hostname}:${port}`)
+        );
+    } catch (error) {
+        console.error('Error iniciando servidor:', error);
+        process.exit(1);
+    }
+};
+
+startServer();

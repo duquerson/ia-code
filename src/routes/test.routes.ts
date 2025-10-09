@@ -1,55 +1,108 @@
 import { Elysia, t } from 'elysia'
-import { data } from '../mock/index.js';
+import Note from '../models/Note.ts';
 
 export const testRoutes = new Elysia({ prefix: '/api/test' })
-    .get('/', () => data.test)
+    .get('/', async () => {
+        const notes = await Note.find({});
+        return notes;
+    })
 
-    .get('/:id', ({ params, set }) => {
-        const foundItem = data.test.find(item => item.id === params.id);
-        if (!foundItem) {
-            set.status = 404;
-            return { error: 'Not found' };
+    .get('/:id', async ({ params, set }) => {
+        try {
+            const note = await Note.findById(params.id);
+
+            if (!note) {
+                set.status = 404;
+                return { error: 'Nota no encontrada' };
+            }
+            return note;
+        } catch (error) {
+            set.status = 400;
+            return { error: 'ID inválido' };
         }
-        return foundItem;
     }, {
         params: t.Object({
-            id: t.Number()
+            id: t.String()
         })
     })
 
-    .delete('/:id', ({ params, set }) => {
-        const itemIndex = data.test.findIndex(item => item.id === params.id);
+    .delete('/:id', async ({ params, set }) => {
+        try {
+            const deletedNote = await Note.findByIdAndDelete(params.id);
 
-        if (itemIndex === -1) {
-            set.status = 404;
-            return { error: 'Item not found' };
+            if (!deletedNote) {
+                set.status = 404;
+                return { error: 'Nota no encontrada' };
+            }
+
+            set.status = 204;
+        } catch (error) {
+            set.status = 400;
+            return { error: 'ID inválido' };
         }
-
-        data.test = data.test.filter(item => item.id !== params.id);
-        set.status = 204;
     }, {
         params: t.Object({
-            id: t.Number()
+            id: t.String()
         })
     })
 
-    .post('/', ({ body, set }) => {
-        const newItem = {
-            id: body.id,
-            content: body.content,
-            date: body.date,
-            important: body.important ?? false
-        };
+    .put('/:id', async ({ params, body, set }) => {
+        try {
+            const updatedNote = await Note.findByIdAndUpdate(
+                params.id,
+                {
+                    content: body.content,
+                    date: body.date,
+                    important: body.important
+                },
+                { new: true, runValidators: true }
+            );
 
-        data.test = [...data.test, newItem];
-        set.status = 201;
-        return newItem;
+            if (!updatedNote) {
+                set.status = 404;
+                return { error: 'Nota no encontrada' };
+            }
+
+            return updatedNote;
+        } catch (error) {
+            set.status = 400;
+            return { error: 'ID inválido o datos incorrectos' };
+        }
     }, {
+        params: t.Object({
+            id: t.String()
+        }),
         body: t.Object({
-            id: t.Number(),
             content: t.String(),
             date: t.String(),
             important: t.Boolean()
+        })
+    })
+
+    .post('/', async ({ body, set }) => {
+        try {
+            const newNote = new Note({
+                content: body.content,
+                date: body.date,
+                important: body.important ?? false
+            });
+
+            const savedNote = await newNote.save();
+            set.status = 201;
+            return savedNote;
+        } catch (error) {
+            console.error('Error al crear nota:', error);
+            set.status = 500;
+            return { 
+                error: 'Error al crear la nota',
+                details: error instanceof Error ? error.message : 'Error desconocido'
+            };
+        }
+    }, {
+        body: t.Object({
+            content: t.String(),
+            date: t.String(),
+            important: t.Optional(t.Boolean())
         })
     })
     .all('*', ({ set, request }) => {
