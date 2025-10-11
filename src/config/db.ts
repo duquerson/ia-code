@@ -1,50 +1,127 @@
 import mongoose from 'mongoose';
 import { MONGODB_URI } from '../config.ts';
+import logger from '../utils/logger.js';
 
 let isConnected = false;
+let connectionAttempts = 0;
+const maxConnectionAttempts = 5;
 
-export const connectDB = async (): Promise<void> => {
+const connectString = MONGODB_URI ?? 'mongodb://localhost:27017/notes-app';
+
+// Función para validar URI de MongoDB
+const validateMongoURI = (uri: string): boolean => {
+    const mongoUriRegex = /^mongodb(\+srv)?:\/\/[^\s]+$/;
+    return mongoUriRegex.test(uri);
+};
+
+// Función mejorada de conexión con reintentos
+export const connectDB = async (retryCount = 0): Promise<void> => {
     if (isConnected) {
-        console.log('Ya existe una conexión a MongoDB');
+        logger.debug('Ya existe una conexión activa a MongoDB');
         return;
     }
 
     try {
+        // Validar configuración
         if (!MONGODB_URI) {
             throw new Error('MONGODB_URI no está definida en las variables de entorno');
         }
-        
-        await mongoose.connect(MONGODB_URI);
+
+        if (!validateMongoURI(MONGODB_URI)) {
+            throw new Error('MONGODB_URI tiene un formato inválido');
+        }
+
+        connectionAttempts = retryCount + 1;
+        logger.info(`Intento de conexión ${connectionAttempts}/${maxConnectionAttempts}`, {
+            attempt: connectionAttempts,
+            maxAttempts: maxConnectionAttempts
+        });
+
+        // ✅ Configurar opciones de conexión según documentación oficial de Mongoose 8+
+        const options = {
+            // Gestión de conexiones (opciones estándar y compatibles)
+            maxPoolSize: 10,                    // Máximo 10 conexiones en pool
+
+            // Timeouts básicos
+            serverSelectionTimeoutMS: 5000,    // 5s para seleccionar servidor
+
+            // Comportamiento estándar
+            bufferCommands: false,             // No bufferizar comandos
+
+            // Opciones básicas de Mongoose
+            retryWrites: true,                 // Reintentar writes automáticamente
+            retryReads: true,                  // Reintentar reads automáticamente
+        };
+
+        await mongoose.connect(connectString, options);
+
+        // ✅ REMOVED: Verificación de ping problemática
+        // La conexión ya está verificada por el mongoose.connect exitoso
         isConnected = true;
-        console.log('✅ MongoDB conectado exitosamente');
+
+        // ✅ Logging usando el sistema de logging en lugar de console.log
+        logger.info('MongoDB conectado exitosamente', {
+            database: mongoose.connection.name,
+            host: mongoose.connection.host,
+            port: mongoose.connection.port,
+            readyState: mongoose.connection.readyState
+        });
 
     } catch (error) {
-        console.error('❌ Error conectando a MongoDB:', error);
-        process.exit(1);
+        logger.error(`Error conectando a MongoDB (intento ${connectionAttempts})`, {
+            error: error instanceof Error ? error.message : error,
+            attempt: connectionAttempts,
+            maxAttempts: maxConnectionAttempts
+        });
+
+        if (retryCount < maxConnectionAttempts - 1) {
+            const delay = Math.min(1000 * Math.pow(2, retryCount), 10000); // Backoff exponencial
+            logger.warn(`Reintentando conexión en ${delay / 1000} segundos`, {
+                nextAttempt: retryCount + 2,
+                delayMs: delay
+            });
+            setTimeout(() => connectDB(retryCount + 1), delay);
+        } else {
+            logger.error('No se pudo conectar a MongoDB después de varios intentos', {
+                maxAttempts: maxConnectionAttempts,
+                mongodbUri: MONGODB_URI ? 'Configurada' : 'No configurada'
+            });
+            logger.error('Verifica:', {
+                mongodbUri: 'URI de conexión a MongoDB',
+                network: 'Conectividad de red',
+                server: 'Estado del servidor MongoDB'
+            });
+            throw error;
+        }
     }
 };
 
-// Manejo de eventos de conexión
-mongoose.connection.on('connected', () => {
-    console.log('🔗 Mongoose conectado a MongoDB');
-    isConnected = true;
-});
+// Función para desconectar
+export const disconnectDB = async (): Promise<void> => {
+    try {
+        await mongoose.connection.close();
+        isConnected = false;
+        logger.info('Desconectado de MongoDB exitosamente');
+    } catch (error) {
+        logger.error('Error desconectando de MongoDB', {
+            error: error instanceof Error ? error.message : error
+        });
+        throw error;
+    }
+};
 
-mongoose.connection.on('error', (err) => {
-    console.error('❌ Error de conexión MongoDB:', err);
-    isConnected = false;
-});
+// Función para verificar estado de conexión
+export const getConnectionStatus = () => {
+    const status = {
+        isConnected,
+        readyState: mongoose.connection.readyState,
+        name: mongoose.connection.name,
+        host: mongoose.connection.host,
+        port: mongoose.connection.port,
+        attempts: connectionAttempts
+    };
 
-mongoose.connection.on('disconnected', () => {
-    console.log('🔌 Mongoose desconectado de MongoDB');
-    isConnected = false;
-});
+    logger.debug('Estado de conexión solicitado', status);
+    return status;
+};
 
-// Manejo de cierre graceful
-process.on('SIGINT', async () => {
-    await mongoose.connection.close();
-    console.log('🛑 Conexión a MongoDB cerrada por terminación de la aplicación');
-    process.exit(0);
-});
-
-export default mongoose;
