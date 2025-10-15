@@ -1,22 +1,32 @@
 import { config } from 'dotenv';
 
 // Configurar variables de entorno
-config({ path: './config.env', quiet: true });
+config({ path: 'config.env' });
 
 // Función para validar configuración requerida
 const validateConfig = () => {
     const errors: string[] = [];
+    const warnings: string[] = [];
 
     if (!process.env.PORT) {
-        console.warn('⚠️ PORT no definida, usando valor por defecto: 4321');
+        warnings.push('PORT no definida, usando valor por defecto: 4321');
     }
 
     if (!process.env.MONGODB_URI) {
-        errors.push('MONGODB_URI es requerida pero no está definida');
+        errors.push('MONGODB_URI es requerida pero no está definida en config.env');
+    }
+
+    if (!process.env.NODE_ENV) {
+        warnings.push('NODE_ENV no definida, usando valor por defecto: development');
+    }
+
+    if (warnings.length > 0) {
+        console.warn('⚠️ Advertencias de configuración:');
+        warnings.forEach(warning => console.warn(`  - ${warning}`));
     }
 
     if (errors.length > 0) {
-        const errorMessage = `Errores de configuración:\n${errors.map(err => `  - ${err}`).join('\n')}`;
+        const errorMessage = `Errores de configuración:\n${errors.map(err => `  - ${err}`).join('\n')}\n\nPara solucionarlo:\n  1. Verifica que el archivo 'config.env' existe en la raíz del proyecto\n  2. Asegúrate de que contiene MONGODB_URI válida\n  3. Revisa los permisos del archivo si es necesario`;
         console.error(`❌ ${errorMessage}`);
         throw new Error(errorMessage);
     }
