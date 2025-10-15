@@ -6,14 +6,6 @@ let isConnected = false;
 let connectionAttempts = 0;
 const maxConnectionAttempts = 5;
 
-const connectString = MONGODB_URI ?? 'mongodb://localhost:27017/notes-app';
-
-// Función para validar URI de MongoDB
-const validateMongoURI = (uri: string): boolean => {
-    const mongoUriRegex = /^mongodb(\+srv)?:\/\/[^\s]+$/;
-    return mongoUriRegex.test(uri);
-};
-
 // Función mejorada de conexión con reintentos
 export const connectDB = async (retryCount = 0): Promise<void> => {
     if (isConnected) {
@@ -22,15 +14,7 @@ export const connectDB = async (retryCount = 0): Promise<void> => {
     }
 
     try {
-        // Validar configuración
-        if (!MONGODB_URI) {
-            throw new Error('MONGODB_URI no está definida en las variables de entorno');
-        }
-
-        if (!validateMongoURI(MONGODB_URI)) {
-            throw new Error('MONGODB_URI tiene un formato inválido');
-        }
-
+        // MONGODB_URI ya está validada en config.ts
         connectionAttempts = retryCount + 1;
         logger.info(`Intento de conexión ${connectionAttempts}/${maxConnectionAttempts}`, {
             attempt: connectionAttempts,
@@ -53,7 +37,7 @@ export const connectDB = async (retryCount = 0): Promise<void> => {
             retryReads: true,                  // Reintentar reads automáticamente
         };
 
-        await mongoose.connect(connectString, options);
+        await mongoose.connect(MONGODB_URI, options);
 
         // ✅ REMOVED: Verificación de ping problemática
         // La conexión ya está verificada por el mongoose.connect exitoso

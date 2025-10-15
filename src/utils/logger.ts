@@ -28,7 +28,7 @@ const getLogLevel = (): LogLevel => {
 };
 
 // Función para formatear mensaje de log
-const formatMessage = (level: LogLevel, message: string, meta?: any): string => {
+const formatMessage = (level: LogLevel, message: string, meta?: Record<string, unknown>): string => {
     const timestamp = new Date().toISOString();
     const levelName = LogLevel[level];
     const color = colors[level];
@@ -44,7 +44,7 @@ const formatMessage = (level: LogLevel, message: string, meta?: any): string => 
 };
 
 // Función principal de logging
-const log = (level: LogLevel, message: string, meta?: any) => {
+const log = (level: LogLevel, message: string, meta?: Record<string, unknown>) => {
     if (level > getLogLevel()) return;
 
     const formattedMessage = formatMessage(level, message, meta);
@@ -61,10 +61,10 @@ const log = (level: LogLevel, message: string, meta?: any) => {
 
 // Funciones específicas por nivel
 export const logger = {
-    error: (message: string, meta?: any) => log(LogLevel.ERROR, message, meta),
-    warn: (message: string, meta?: any) => log(LogLevel.WARN, message, meta),
-    info: (message: string, meta?: any) => log(LogLevel.INFO, message, meta),
-    debug: (message: string, meta?: any) => log(LogLevel.DEBUG, message, meta),
+    error: (message: string, meta?: Record<string, unknown>) => log(LogLevel.ERROR, message, meta),
+    warn: (message: string, meta?: Record<string, unknown>) => log(LogLevel.WARN, message, meta),
+    info: (message: string, meta?: Record<string, unknown>) => log(LogLevel.INFO, message, meta),
+    debug: (message: string, meta?: Record<string, unknown>) => log(LogLevel.DEBUG, message, meta),
 
     // Función para logging de operaciones HTTP
     http: (method: string, url: string, statusCode?: number, duration?: number) => {
@@ -86,7 +86,7 @@ export const logger = {
     },
 
     // Función para logging de operaciones de base de datos
-    database: (operation: string, collection: string, duration?: number, error?: any) => {
+    database: (operation: string, collection: string, duration?: number, error?: Error) => {
         const message = `DB ${operation} en ${collection}`;
         const meta = {
             operation,

@@ -8,33 +8,7 @@ const isValidObjectId = (id: string): boolean => {
     return mongoose.Types.ObjectId.isValid(id);
 };
 
-// Función para manejar errores de base de datos según prácticas oficiales de Elysia.js
-const handleDatabaseError = (error: Error & { name: string; errors?: Record<string, { message: string }>; code?: number }, operation: string): never => {
-    logger.error(`Error en operación de base de datos: ${operation}`, {
-        error: error.message,
-        name: error.name,
-        code: error.code,
-        operation
-    });
-
-    // Según documentación oficial de Elysia.js, lanzar errores simples
-    // que serán manejados por el manejador global onError
-    if (error.name === 'ValidationError' && error.errors) {
-        const messages = Object.values(error.errors).map((err: { message: string }) => err.message);
-        throw new Error(`VALIDATION_ERROR: ${messages.join(', ')}`);
-    }
-
-    if (error.name === 'CastError') {
-        throw new Error('INVALID_ID: El ID proporcionado no es válido');
-    }
-
-    if (error.code === 11000) {
-        throw new Error('DUPLICATE_ERROR: Ya existe un registro con estos datos únicos');
-    }
-
-    // Error genérico de base de datos
-    throw new Error(`DATABASE_ERROR: ${error.message}`);
-};
+// Los errores ahora son manejados por el manejador global
 
 export const testRoutes = new Elysia({ prefix: '/api/test' })
     .get('/', async ({ set }) => {
@@ -53,9 +27,8 @@ export const testRoutes = new Elysia({ prefix: '/api/test' })
                 timestamp: new Date().toISOString()
             };
         } catch (error) {
-            // Según prácticas oficiales de Elysia.js, lanzar error simple
             logger.error('Error en GET /', { error: error instanceof Error ? error.message : error });
-            throw new Error('DATABASE_ERROR: Error al obtener notas');
+            throw error;
         }
     })
 
@@ -85,10 +58,8 @@ export const testRoutes = new Elysia({ prefix: '/api/test' })
 
             return note;
         } catch (error) {
-            // Según prácticas oficiales de Elysia.js, lanzar error simple
-            // para que sea manejado por el manejador global onError
             logger.error('Error en GET /:id', { error: error instanceof Error ? error.message : error });
-            throw new Error('DATABASE_ERROR: Error al obtener nota');
+            throw error;
         }
     }, {
         params: t.Object({
@@ -131,9 +102,8 @@ export const testRoutes = new Elysia({ prefix: '/api/test' })
                 deletedAt: new Date().toISOString()
             };
         } catch (error) {
-            // Según prácticas oficiales de Elysia.js, lanzar error simple
             logger.error('Error en DELETE /:id', { error: error instanceof Error ? error.message : error });
-            throw new Error('DATABASE_ERROR: Error al eliminar nota');
+            throw error;
         }
     }, {
         params: t.Object({
@@ -200,9 +170,8 @@ export const testRoutes = new Elysia({ prefix: '/api/test' })
                 updatedAt: updatedNote.updatedAt || new Date()
             };
         } catch (error) {
-            // Según prácticas oficiales de Elysia.js, lanzar error simple
             logger.error('Error en PATCH /:id', { error: error instanceof Error ? error.message : error });
-            throw new Error('DATABASE_ERROR: Error al actualizar nota');
+            throw error;
         }
     }, {
         params: t.Object({
@@ -277,9 +246,8 @@ export const testRoutes = new Elysia({ prefix: '/api/test' })
                 updatedAt: updatedNote.updatedAt || new Date()
             };
         } catch (error) {
-            // Según prácticas oficiales de Elysia.js, lanzar error simple
             logger.error('Error en PUT /:id', { error: error instanceof Error ? error.message : error });
-            throw new Error('DATABASE_ERROR: Error al actualizar nota');
+            throw error;
         }
     }, {
         params: t.Object({
@@ -312,7 +280,7 @@ export const testRoutes = new Elysia({ prefix: '/api/test' })
 
             // Devolver solo los campos requeridos
             const result = {
-                id: savedNote._id.toString(),
+                id: savedNote._id?.toString() || '',
                 content: savedNote.content,
                 date: savedNote.date,
                 important: savedNote.important ?? false, // ✅ Asegurar valor por defecto
@@ -322,9 +290,8 @@ export const testRoutes = new Elysia({ prefix: '/api/test' })
             set.status = 201;
             return result;
         } catch (error) {
-            // Según prácticas oficiales de Elysia.js, lanzar error simple
             logger.error('Error en POST /', { error: error instanceof Error ? error.message : error });
-            throw new Error('DATABASE_ERROR: Error al crear nota');
+            throw error;
         }
     }, {
         body: t.Object({
