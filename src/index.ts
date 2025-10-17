@@ -1,44 +1,34 @@
 import { Elysia } from 'elysia'
 import { node } from '@elysiajs/node'
 import { cors } from '@elysiajs/cors'
-import { PORT } from './config.ts'
-import type { server } from './types/index.ts'
-import { testRoutes } from './routes/test.routes.ts'
-import { notesRoutes } from './routes/notes.routes.ts'
+import { todosRoutes } from './routes/todos.routes.ts'        // sin .ts
 import { setupErrorHandler } from './middleware/errorHandler.ts'
-import logger from './utils/logger.ts'
-import { connectDB } from './config/db.ts'
 
-const app = new Elysia({ adapter: node() }).onBeforeHandle(({ set }) => {
-    if (set?.headers && 'x-powered-by' in set.headers) {
-        delete set.headers['x-powered-by']
-    }
-})
+import { connectDB, disconnectDB, DATA } from './config/conectDB.ts'
 
+// Valores por defecto
+const serverPort = DATA.PORT
+const host = DATA.HOST
 
-
-// Configuración de CORS
-app.use(cors())
-
-// Configuración del manejador global de errores
+const app = new Elysia({ adapter: node() })
+    // Configuración de CORS
+    .use(cors())
+    // ✅ Eliminar X-Powered-By header
+    .onAfterHandle(({ set }) => {
+        if (set.headers) {
+            delete set.headers['x-powered-by']
+        }
+    })
+// Error handler (plugin/hook)
 setupErrorHandler(app)
 
-// El manejo global de errores ahora está en el middleware errorHandler
+// Rutas
+app.use(todosRoutes)
 
-// Registro de rutas
-app.use(testRoutes)
-app.use(notesRoutes)
-
-// Catch-all para rutas no definidas
+// Catch-all 404
 app.all('*', ({ set, request }) => {
     const method = request.method
     const url = new URL(request.url).pathname
-
-    logger.warn(`Ruta no encontrada: ${method} ${url}`, {
-        method,
-        url,
-        userAgent: request.headers.get('user-agent')
-    })
 
     set.status = 404
     return {
@@ -50,54 +40,42 @@ app.all('*', ({ set, request }) => {
     }
 })
 
-// Eliminar X-Powered-By después de manejar la petición
-app.onAfterHandle?.(({ set }) => {
-    if (set?.headers && typeof set.headers === 'object' && 'x-powered-by' in set.headers) {
-        try {
-            delete set.headers['x-powered-by']
-        } catch {
-            // Ignorar errores al eliminar la cabecera
-        }
-    }
-})
 
-// Función para iniciar servidor con manejo de errores
-const startServer = async (retryCount = 0) => {
-    const maxRetries = 3
-    const retryDelay = 2000
-
+async function start() {
     try {
-        logger.info('Conectando a la base de datos...', { attempt: retryCount + 1 })
         await connectDB()
 
-        logger.info('Iniciando servidor...', { port: PORT })
-        app.listen(PORT, ({ hostname, port }: server) => {
-            const host = hostname || 'localhost'
-            const serverPort = port || PORT
-            logger.info('Servidor iniciado exitosamente', {
-                url: `http://${host}:${serverPort}`,
-                environment: process.env.NODE_ENV || 'development'
-            })
-        })
+        await app.listen(serverPort)
+        console.log('🚀 Servidor iniciado exitosamente', {
+            url: `http://${host}:${serverPort}`,
 
-    } catch (error) {
-        logger.error(`Error iniciando servidor (intento ${retryCount + 1}/${maxRetries + 1})`, {
-            error: error instanceof Error ? error.message : error,
-            attempt: retryCount + 1
+            port: serverPort
         })
+    } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : String(err)
+        console.error('❌ No se pudo conectar o iniciar el servidor:', {
+            error: errorMessage,
+            mongodbUri: DATA.APIDB ? 'Configurada' : 'No configurada'
+        })
+        process.exit(1)
+    }
+}
+start()
 
-        if (retryCount < maxRetries) {
-            logger.info(`Reintentando en ${retryDelay / 1000} segundos...`, { nextAttempt: retryCount + 2 })
-            setTimeout(() => startServer(retryCount + 1), retryDelay)
-        } else {
-            logger.error('No se pudo iniciar el servidor después de varios intentos', {
-                maxRetries,
-                port: PORT,
-                mongodbUri: process.env.MONGODB_URI ? 'Configurada' : 'No configurada'
-            })
-            process.exit(1)
-        }
+// Graceful shutdown para SIGINT y SIGTERM
+async function gracefulShutdown(code = 0) {
+    console.log('⏳ Cerrando servidor...')
+    try {
+        await disconnectDB()
+        console.log('✅ Conexión a BD cerrada correctamente')
+        console.log('👋 Servidor cerrado')
+        process.exit(code)
+    } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : String(err)
+        console.error('❌ Error cerrando conexión:', { error: errorMessage })
+        process.exit(1)
     }
 }
 
-startServer()
+process.on('SIGINT', () => gracefulShutdown(0))
+process.on('SIGTERM', () => gracefulShutdown(0))
