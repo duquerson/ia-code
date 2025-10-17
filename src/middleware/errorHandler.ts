@@ -6,15 +6,15 @@
  */
 
 import type { Elysia } from 'elysia';
-import { 
-    AppError, 
-    ValidationError, 
-    NotFoundError, 
-    InvalidIdError, 
+import {
+    AppError,
+    ValidationError,
+    NotFoundError,
+    InvalidIdError,
     DatabaseError,
-    DuplicateError 
+    DuplicateError
 } from '../utils/errors.ts';
-import logger from '../utils/logger.ts';
+
 
 /**
  * Configura el manejador global de errores para Elysia
@@ -31,7 +31,7 @@ export const setupErrorHandler = (app: Elysia) => {
         // CASO 1: Errores personalizados de nuestra aplicación
         // ═══════════════════════════════════════════════════════
         if (error instanceof AppError) {
-            logger.warn(`${error.constructor.name}: ${error.message}`, {
+            console.warn(`${error.constructor.name}: ${error.message}`, {
                 code: error.code,
                 statusCode: error.statusCode,
                 method,
@@ -53,7 +53,7 @@ export const setupErrorHandler = (app: Elysia) => {
         // CASO 2: Errores de validación de Elysia
         // ═══════════════════════════════════════════════════════
         if (code === 'VALIDATION') {
-            logger.warn('Error de validación de Elysia', {
+            console.warn('Error de validación de Elysia', {
                 method,
                 url,
                 error: error instanceof Error ? error.message : error
@@ -74,7 +74,7 @@ export const setupErrorHandler = (app: Elysia) => {
         // CASO 3: Rutas no encontradas (404)
         // ═══════════════════════════════════════════════════════
         if (code === 'NOT_FOUND') {
-            logger.warn('Ruta no encontrada', { method, url });
+            console.warn('Ruta no encontrada', { method, url });
 
             set.status = 404;
             return {
@@ -90,7 +90,7 @@ export const setupErrorHandler = (app: Elysia) => {
         // ═══════════════════════════════════════════════════════
         // CASO 4: Errores inesperados (500)
         // ═══════════════════════════════════════════════════════
-        logger.error('Error inesperado', {
+        console.error('Error inesperado', {
             code,
             error: error instanceof Error ? error.message : error,
             stack: error instanceof Error ? error.stack : undefined,
