@@ -1,7 +1,7 @@
 
 import { Elysia } from 'elysia';
-import { Todo } from '../models/todo.model.ts';
 import { validateCreateTodo, validateUpdateTodo, isValidId } from '../helpers/todo.ts';
+import { todoModel } from '../models/todo.model.ts';
 
 //------------------------------------------------------------------------------
 
@@ -11,9 +11,11 @@ export const todosRoutes = new Elysia({ prefix: '/api/v1/todos' })
 
     //obtiene todas las tareas
 
-    .get('/', async ({ set }) => {
-        const todos = await Todo.find({});
-        if (!todos) {
+    .get('/', async ({ set }) => {//handler de rutas pending
+        try {
+            const todos = await todoModel.getAllTodos();
+            return todos;
+        } catch (error) { //handler de errores pending
             set.status = 500;
             return {
                 error: 'Error del servidor',
@@ -21,8 +23,6 @@ export const todosRoutes = new Elysia({ prefix: '/api/v1/todos' })
                 timestamp: new Date().toISOString()
             };
         }
-        set.status = 200;
-        return todos.map(todo => todo.toJSON());
     })
 
     //obtiene una tarea por id
