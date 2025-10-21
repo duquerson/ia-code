@@ -62,20 +62,5 @@ async function start() {
 }
 start()
 
-// Graceful shutdown para SIGINT y SIGTERM
-async function gracefulShutdown(code = 0) {
-    console.log('⏳ Cerrando servidor...')
-    try {
-        await disconnectDB()
-        console.log('✅ Conexión a BD cerrada correctamente')
-        console.log('👋 Servidor cerrado')
-        process.exit(code)
-    } catch (err: unknown) {
-        const errorMessage = err instanceof Error ? err.message : String(err)
-        console.error('❌ Error cerrando conexión:', { error: errorMessage })
-        process.exit(1)
-    }
-}
 
-process.on('SIGINT', () => gracefulShutdown(0))
-process.on('SIGTERM', () => gracefulShutdown(0))
+
