@@ -43,12 +43,7 @@ export const connectDB = (): Promise<void> => {
         .then(() => {
             isConnected = true;
 
-            console.info('✅ MongoDB conectado exitosamente', {
-                database: mongoose.connection.name,
-                host: mongoose.connection.host,
-                port: mongoose.connection.port,
-                readyState: mongoose.connection.readyState
-            });
+            console.info('✅ MongoDB conectado exitosamente');
         })
         .catch((error) => {
             isConnected = false;
