@@ -20,7 +20,16 @@ const host = DATA.HOST;
 
 const app = new Elysia({ adapter: node() })
     // Configuración de CORS pending
-    .use(cors())
+    .use(cors({
+        origin: (request) => {
+            const allowed = [DATA.HOST, 'https://admin.example.com'];
+            const origin = request.headers.get('origin') ?? '';
+            return allowed.includes(origin);
+        },
+        maxAge: 600, // 10 minutos
+        methods:
+            ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+    }))
     // ✅ Eliminar X-Powered-By header
     .onAfterHandle(({ set }) => {
         if (set.headers) {
