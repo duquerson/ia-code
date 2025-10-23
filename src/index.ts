@@ -14,12 +14,37 @@ import { DATA } from './utils/const.ts'
 
 const serverPort = DATA.PORT;
 const host = DATA.HOST;
+
+//------------------------------------------------
+//  Rate Limiting Manual (sin dependencias externas)
+//------------------------------
+
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+const RATE_LIMIT_MAX = 100; // Máximo requests
+const RATE_LIMIT_WINDOW = 60000; // Ventana en ms (1 minuto)
+
+function checkRateLimit(ip: string): boolean {
+    const now = Date.now();
+    const entry = rateLimitMap.get(ip);
+
+    if (!entry || now > entry.resetTime) {
+        rateLimitMap.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
+        return true;
+    }
+
+    if (entry.count >= RATE_LIMIT_MAX) {
+        return false;
+    }
+
+    entry.count++;
+    return true;
+}
 //------------------------------------------------
 // Inicialización de la aplicación
 //------------------------------------------------
 
 const app = new Elysia({ adapter: node() })
-    // Configuración de CORS pending
+    // Configuración de CORS
     .use(cors({
         origin: (request) => {
             const allowed = [DATA.HOST, 'https://admin.example.com'];
@@ -30,10 +55,26 @@ const app = new Elysia({ adapter: node() })
         methods:
             ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
     }))
-    // ✅ Eliminar X-Powered-By header
+    // Rate Limiting Manual
+    .onBeforeHandle(({ request, set }) => {
+        const ip = request.headers.get('x-forwarded-for') || 'unknown';
+        if (!checkRateLimit(ip)) {
+            set.status = 429;
+            return {
+                error: 'Too Many Requests',
+                message: 'Demasiadas solicitudes, intenta de nuevo más tarde.',
+                timestamp: new Date().toISOString()
+            };
+        }
+    })
+    // Headers de seguridad (Helmet-like)
     .onAfterHandle(({ set }) => {
         if (set.headers) {
-            delete set.headers['x-powered-by']
+            delete set.headers['x-powered-by'];
+            set.headers['X-Content-Type-Options'] = 'nosniff';
+            set.headers['X-Frame-Options'] = 'DENY';
+            set.headers['X-XSS-Protection'] = '1; mode=block';
+            set.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains';
         }
     })
 
