@@ -1,61 +1,44 @@
-// Utilidades de errores personalizadas para la aplicación
-// Estilo: clases ligeras que extienden Error y almacenan código y statusCode
+//----------------------------------------------
+// Errors Personalizados para la aplicación
+//--------------------------------------------------------------
 
 class AppError extends Error {
+    public status: number;
     public code: string;
-    public statusCode: number;
-    public details?: unknown;
-
-    constructor(code: string, message: string, statusCode = 500, details?: unknown) {
+    constructor(message: string, code = 'APP_ERROR', status = 500) {
         super(message);
-        this.name = 'AppError';
+        this.name = this.constructor.name;
+        this.status = status;
         this.code = code;
-        this.statusCode = statusCode;
-        this.details = details;
-        Error.captureStackTrace?.(this, this.constructor);
+        Error.captureStackTrace(this, this.constructor);
     }
 }
 
 class ValidationError extends AppError {
-    constructor(message = 'Validation failed', details?: unknown) {
-        super('VALIDATION_ERROR', message, 400, details);
-        this.name = 'ValidationError';
+    public details?: unknown;
+    constructor(message = 'Validation error', details?: unknown) {
+        super(message, 'VALIDATION_ERROR', 400);
+        this.details = details;
     }
 }
 
 class NotFoundError extends AppError {
-    constructor(message = 'Resource not found') {
-        super('NOT_FOUND', message, 404);
-        this.name = 'NotFoundError';
+    constructor(message = 'Not found') {
+        super(message, 'NOT_FOUND', 404);
     }
 }
 
-class InvalidIdError extends AppError {
-    constructor(message = 'Invalid identifier') {
-        super('INVALID_ID', message, 400);
-        this.name = 'InvalidIdError';
+class ClientError extends AppError {
+    constructor(message = 'Bad Request') {
+        super(message, 'CLIENT_ERROR', 400);
     }
 }
 
-class DatabaseError extends AppError {
-    constructor(message = 'Database error', details?: unknown) {
-        super('DATABASE_ERROR', message, 500, details);
-        this.name = 'DatabaseError';
+class ServerError extends AppError {
+    constructor(message = 'Internal server error') {
+        super(message, 'SERVER_ERROR', 500);
     }
 }
+//--------------------------------------------------------------
 
-class DuplicateError extends AppError {
-    constructor(message = 'Duplicate resource') {
-        super('DUPLICATE_ERROR', message, 409);
-        this.name = 'DuplicateError';
-    }
-}
-
-export {
-    AppError,
-    ValidationError,
-    NotFoundError,
-    InvalidIdError,
-    DatabaseError,
-    DuplicateError
-};
+export { AppError, ValidationError, NotFoundError, ClientError, ServerError };
