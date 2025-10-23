@@ -2,16 +2,24 @@ import { Elysia } from 'elysia'
 import { node } from '@elysiajs/node'
 import { cors } from '@elysiajs/cors'
 import { todosRoutes } from './routes/todos.routes.ts'        // sin .ts
-import { setupErrorHandler } from './middleware/errorHandler.ts'
+import { AppError } from './utils/errors.ts'
+import { connectDB } from './config/mongodb/conectDB.ts'
+import { onErrors } from './middleware/handlerErros.ts'
+import { logger } from './utils/logger.ts'
+import { DATA } from './utils/const.ts'
 
-import { connectDB, disconnectDB, DATA } from './config/conectDB.ts'
+//------------------------------------------------
+//  Variables de configuración
+//------------------------------
 
-// Valores por defecto
-const serverPort = DATA.PORT
-const host = DATA.HOST
+const serverPort = DATA.PORT;
+const host = DATA.HOST;
+//------------------------------------------------
+// Inicialización de la aplicación
+//------------------------------------------------
 
 const app = new Elysia({ adapter: node() })
-    // Configuración de CORS
+    // Configuración de CORS pending
     .use(cors())
     // ✅ Eliminar X-Powered-By header
     .onAfterHandle(({ set }) => {
@@ -19,13 +27,19 @@ const app = new Elysia({ adapter: node() })
             delete set.headers['x-powered-by']
         }
     })
-// Error handler (plugin/hook)
-setupErrorHandler(app)
 
-// Rutas
+//------------------------------------------------
+// Middleware para manejo de errores globales
+//------------------------------------------------
+app.use(onErrors)
+//------------------------------------------------
+// Rutas de gestión de tareas
+//------------------------------------------------
 app.use(todosRoutes)
 
-// Catch-all 404
+//------------------------------------------------
+// Manejador de rutas no encontradas (404)
+//------------------------------------------------
 app.all('*', ({ set, request }) => {
     const method = request.method
     const url = new URL(request.url).pathname
@@ -39,28 +53,34 @@ app.all('*', ({ set, request }) => {
         timestamp: new Date().toISOString()
     }
 })
-
-
+//------------------------------------------------
+// Inicio del servidor
+//------------------------------------------------
 async function start() {
     try {
         await connectDB()
-
         await app.listen(serverPort)
-        console.log('🚀 Servidor iniciado exitosamente', {
+        logger.info('🚀 Servidor iniciado exitosamente', {
             url: `http://${host}:${serverPort}`,
-
             port: serverPort
         })
-    } catch (err: unknown) {
-        const errorMessage = err instanceof Error ? err.message : String(err)
-        console.error('❌ No se pudo conectar o iniciar el servidor:', {
-            error: errorMessage,
-            mongodbUri: DATA.APIDB ? 'Configurada' : 'No configurada'
-        })
-        process.exit(1)
+    } catch (error) {
+        if (error instanceof AppError) {
+            logger.error('Error de conexión a la base de datos:', { message: error.message });
+
+            throw error;
+        }
+
+        throw error;
     }
 }
-start()
+start().catch((error) => {
+    logger.error('Error fatal al iniciar el servidor:', {
+        message: error instanceof Error ? error.message : error,
+        stack: error instanceof Error ? error.stack : undefined
+    });
+    process.exit(1);
+});
 
 
 
